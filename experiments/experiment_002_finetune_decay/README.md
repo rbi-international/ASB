@@ -4,7 +4,7 @@
 QLoRA fine-tuning on emotionally neutral instruction data degrades emotion-steering effectiveness on Qwen2.5-1.5B-Instruct, and the decay rate differs between basic and nuanced Plutchik categories (nuanced decays faster).
 
 ## Motivation
-This is ASB's first original data point and the project's go/no-go gate. Prior work (ICLR 2026 Re-Align Workshop (non-archival)) shows embedded behavioral steering degrades when training data contradicts the steered behavior, but tested only generic behaviors (refusal, brevity), not affective categories, and did not analyze category-differentiated decay. If category-differentiated decay exists, ASB has a headline finding; if decay is flat and uniform, the benchmark's central axis must be redesigned before further investment.
+This is ASB's first original data point and the project's go/no-go gate. Prior work (ICLR 2026 Re-Align Workshop) shows embedded behavioral steering degrades when training data contradicts the steered behavior, but tested only generic behaviors (refusal, brevity), not affective categories, and did not analyze category-differentiated decay. If category-differentiated decay exists, ASB has a headline finding; if decay is flat and uniform, the benchmark's central axis must be redesigned before further investment.
 
 Note: the Re-Align workshop paper found that embedded steering persists when the fine-tuning data does not contradict the steered behavior, and degrades only when it does. This directly affects our neutral-data design, since emotionally neutral fine-tuning data applies little contradicting pressure and may therefore produce little or no decay. Design decision pending: neutral-only fine-tuning vs adding a contradictory-data arm.
 
