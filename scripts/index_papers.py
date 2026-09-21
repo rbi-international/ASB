@@ -187,12 +187,11 @@ def extract(pdf: Path) -> dict[str, str]:
                 break
         if out["Venue"]:
             break
+    # The arXiv stamp's date is the latest version's, not the publication year,
+    # so it only supplies the arXiv ID as a venue, never a Year.
     stamp = ARXIV_STAMP.search(clean(first))
-    if stamp:
-        if not out["Venue"]:
-            out["Venue"] = f"arXiv:{stamp.group(1)}"
-        if not out["Year"]:
-            out["Year"] = stamp.group(3)
+    if stamp and not out["Venue"]:
+        out["Venue"] = f"arXiv:{stamp.group(1)}"
     return out
 
 

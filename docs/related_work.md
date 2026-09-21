@@ -9,53 +9,53 @@ Format per paper: (1) what they did, (2) what they explicitly could not do, (3) 
 3. This paper already asks and answers ASB's fine-tuning question (does steering survive routine, non-adversarial downstream fine-tuning?) with a stronger perturbation (full-parameter SFT and RLHF on 3B to 14B models, 4x H100, p15), so ASB's genuine differences are narrower: affective targets broken out per Plutchik category, inference-time difference-in-means vectors tracked across QLoRA checkpoints rather than weight-embedded edits measured once after training, a quantisation axis this paper explicitly left to future work (p9), and a 6 GB budget; note also that their finding that steering persists when training data does not push against it (pp7 to 9) predicts little decay on ASB's emotionally neutral fine-tuning data, and that QLoRA is milder than their worst case.
 
 ### Do LLMs "Feel"? Emotion Circuits Discovery and Control (arXiv 2510.11328)
-1. PDF not found in papers/
-2. PDF not found in papers/
-3. PDF not found in papers/
+1.
+2.
+3.
 
 ### Emotions Where Art Thou (arXiv 2510.22042)
-1. PDF not found in papers/
-2. PDF not found in papers/
-3. PDF not found in papers/
+1.
+2.
+3.
 
 ### Cross-model Transferability on Platonic Representations (Huang et al., ACL 2025)
-1. PDF not found in papers/
-2. PDF not found in papers/
-3. PDF not found in papers/
+1.
+2.
+3.
 
 ## Tier 2: methodology
 ### Contrastive Activation Addition (Rimsky et al., ACL 2024)
-1. PDF not found in papers/
-2. PDF not found in papers/
-3. PDF not found in papers/
+1.
+2.
+3.
 
 ### Representation Engineering (Zou et al., 2023)
-1. PDF not found in papers/
-2. PDF not found in papers/
-3. PDF not found in papers/
+1.
+2.
+3.
 
 ### Analyzing the Generalization and Reliability of Steering Vectors (Tan et al., NeurIPS 2024)
-1. PDF not found in papers/
-2. PDF not found in papers/
-3. PDF not found in papers/
+1.
+2.
+3.
 
 ### QLoRA (Dettmers et al., 2023)
-1. PDF not found in papers/
-2. PDF not found in papers/
-3. PDF not found in papers/
+1.
+2.
+3.
 
 ### Painless Activation Steering (arXiv 2509.22739)
-1. PDF not found in papers/
-2. PDF not found in papers/
-3. PDF not found in papers/
+1.
+2.
+3.
 
 ## Tier 3: benchmark craft
 ### MMLU (Hendrycks et al.)
-1. PDF not found in papers/
-2. PDF not found in papers/
-3. PDF not found in papers/
+1.
+2.
+3.
 
 ### HELM (Liang et al., 2022)
-1. PDF not found in papers/
-2. PDF not found in papers/
-3. PDF not found in papers/
+1.
+2.
+3.
