@@ -1,0 +1,12 @@
+# Locked v1.0 taxonomy: Plutchik 8 primary categories.
+# Split rationale: the six Ekman-overlapping categories are treated as "basic";
+# the two Plutchik-specific categories (trust, anticipation) are treated as
+# "nuanced" since they lack Ekman-level cross-cultural universality evidence
+# and are more cognitively mediated. This split is a documented design
+# decision; Experiment 001 results may trigger a review before Experiment 002.
+categories:
+  basic: [joy, sadness, anger, fear, surprise, disgust]
+  nuanced: [trust, anticipation]
+extraction:
+  method: difference_in_means
+  equal_per_category_examples: true

@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use ASB, please cite it as below."
+title: "ASB: Affective Stability Benchmark"
+authors:
+  - family-names: "Bharti"
+    given-names: "Rohit"
+    affiliation: "School of Computer Science and Engineering, Lovely Professional University, Punjab, India"
+version: 1.0.0-dev
+date-released: 2026-09-21
+url: "https://github.com/rbi-international/ASB"
+license: MIT

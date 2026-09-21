@@ -1,0 +1,11 @@
+torch>=2.3
+transformers>=4.44
+peft>=0.12
+bitsandbytes>=0.43
+accelerate>=0.33
+datasets>=2.20
+numpy>=1.26
+pandas>=2.2
+scipy>=1.13
+matplotlib>=3.9
+pyyaml>=6.0
