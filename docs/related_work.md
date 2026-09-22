@@ -23,6 +23,16 @@ Format per paper: (1) what they did, (2) what they explicitly could not do, (3) 
 2.
 3.
 
+### AxBench (Wu et al., ICML 2025)
+1.
+2.
+3.
+
+### Persona Vectors (Chen et al., arXiv 2507.21509)
+1.
+2.
+3.
+
 ## Tier 2: methodology
 ### Contrastive Activation Addition (Rimsky et al., ACL 2024)
 1.
@@ -45,6 +55,26 @@ Format per paper: (1) what they did, (2) what they explicitly could not do, (3) 
 3.
 
 ### Painless Activation Steering (arXiv 2509.22739)
+1.
+2.
+3.
+
+### Representation Engineering Survey (Bartoszcze et al., arXiv 2502.17601)
+1.
+2.
+3.
+
+### Refusal Direction (Arditi et al., 2024)
+1.
+2.
+3.
+
+### Catastrophic failure of LLM unlearning via quantization (Zhang et al., ICLR 2025)
+1.
+2.
+3.
+
+### Fine-tuning aligned language models compromises safety (Qi et al., ICLR 2024)
 1.
 2.
 3.
