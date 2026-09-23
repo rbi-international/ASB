@@ -11,7 +11,7 @@ Recent work shows that emotional behavior in LLMs can be located and controlled 
 ## Research Questions (v1.0)
 
 - RQ1: How reliably can each of the eight Plutchik emotion categories be steered in current small open-weight instruction models?
-- RQ2: Does steering effectiveness decay under downstream fine-tuning on unrelated data, and does the decay rate differ between basic and nuanced emotion categories?
+- RQ2: Does steering effectiveness decay under downstream fine-tuning, both on emotionally neutral data and on data that contradicts the steered affect, and does the decay rate differ between basic and nuanced emotion categories?
 - RQ3: Does post-training quantization (FP16 vs 8-bit vs 4-bit) degrade steering effectiveness, and does the degradation differ by category?
 
 ## Locked v1.0 Scope
@@ -32,8 +32,12 @@ Category split for decay analysis (rationale in `configs/emotions.yaml`):
 | Phi-3.5-mini-instruct | Phi | 3.8B |
 
 ### Stability axes
-1. Fine-tuning decay: steering effectiveness re-measured at fixed checkpoints during QLoRA fine-tuning on emotionally neutral instruction data.
+1. Fine-tuning decay: steering effectiveness re-measured at fixed checkpoints during QLoRA fine-tuning, in two data arms:
+   - Neutral arm: emotionally neutral instruction data.
+   - Contradictory arm: the same data with a fixed fraction (50%, pre-registered) replaced by affect-flattening examples (emotion-inviting prompts answered in a deliberately affect-neutral register), which pushes against steered affect. Construction and fraction are fixed in `experiments/experiment_002_finetune_decay/README.md` before the run.
 2. Quantization degradation: steering effectiveness compared across FP16, 8-bit, and 4-bit inference.
+
+Scope amendment (2026-09-22): the contradictory arm was added to axis 1 deliberately. The ICLR 2026 Re-Align Workshop paper on embedded steering under fine-tuning found steering persists when fine-tuning data does not contradict the steered behavior (see `docs/related_work.md`), so a neutral-only design risks a null result that repeats existing work. This is the only change to the locked scope; the Scope Policy below still applies.
 
 ### Metrics (three, no more)
 1. Steering Success Rate (SSR) per emotion category, judged.
@@ -47,6 +51,9 @@ The following are explicitly deferred to v2.0 and will not be added to v1.0 rega
 - Paraphrase / prompt-perturbation robustness
 - Indic-language affective evaluation (Hindi, Punjabi)
 - Intensity tiers within Plutchik categories (e.g., serenity, joy, ecstasy)
+- Per-category opposite-affect fine-tuning arms
+- Fine-tuning data-fraction sweep
+- Steering-vector layer selection (v1.0 fixes a single mid-layer, layer 14 for Qwen2.5-1.5B; sweeping layers is deferred)
 
 Any pull request or experiment expanding v1.0 beyond the locked scope will be declined with a pointer to this section.
 
