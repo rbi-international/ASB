@@ -1,0 +1,72 @@
+# Contrastive prompt pairs for difference-in-means emotion vector extraction.
+# Each pair: an emotion-expressing sentence and a neutral counterpart of
+# matched length and topic. Hand-authored, licence-clean, fully controlled.
+# Target: 20 pairs per category. Seeded here with 3 examples as the format;
+# Rohit fills the rest.
+meta:
+  pairs_per_category_target: 20
+  authorship: hand_written
+categories:
+  joy:
+    - emotion: "I could not stop smiling as the good news sank in."
+      neutral: "I noted the news and returned to my desk to work."
+    - emotion: "The whole kitchen was laughing while we cooked together."
+      neutral: "The whole kitchen was quiet while we cooked together."
+    - emotion: "Walking home tonight, every street felt bright and alive."
+      neutral: "Walking home tonight, every street looked much as usual."
+
+  sadness:
+    - emotion: "A heavy grief settled over me as the room emptied."
+      neutral: "The room emptied and I gathered my papers to leave."
+    - emotion: "I read her last letter again and my chest ached."
+      neutral: "I read her last letter again and filed it away."
+    - emotion: "The house feels hollow now that the summer has ended."
+      neutral: "The house is emptier now that the summer has ended."
+
+  anger:
+    - emotion: "My jaw tightened when he broke the promise again."
+      neutral: "I made a note when he changed the plan again."
+    - emotion: "I slammed the report down, furious at the wasted year."
+      neutral: "I set the report down and reviewed the past year."
+    - emotion: "They lied to my face and I wanted to shout."
+      neutral: "They gave me the update and I wrote it down."
+
+  fear:
+    - emotion: "My pulse hammered as the footsteps came down the hall."
+      neutral: "I looked up as the footsteps came down the hall."
+    - emotion: "I froze at the top of the stairs, afraid to move."
+      neutral: "I paused at the top of the stairs to check the time."
+    - emotion: "Every shadow in the car park looked like a threat."
+      neutral: "Every space in the car park looked much the same."
+
+  trust:
+    - emotion: "I handed her the keys without a second thought."
+      neutral: "I handed her the keys and listed what each one opened."
+    - emotion: "Whatever he tells me about the accounts, I believe it."
+      neutral: "Whatever he tells me about the accounts, I record it."
+    - emotion: "I would put my savings in that team's hands tomorrow."
+      neutral: "I would move my savings to that account tomorrow."
+
+  disgust:
+    - emotion: "The smell from the bin made my stomach turn."
+      neutral: "The smell from the bin reached the back door."
+    - emotion: "I pushed the plate away, revolted by the grey meat."
+      neutral: "I pushed the plate away and asked for the bill."
+    - emotion: "Their excuse was so sordid I could barely listen."
+      neutral: "Their excuse was so detailed I could barely follow it."
+
+  surprise:
+    - emotion: "I gasped when the door opened and everyone was there."
+      neutral: "I paused when the door opened and everyone was there."
+    - emotion: "Out of nowhere, the quiet student won the whole prize."
+      neutral: "As expected, the quiet student won a share of the prize."
+    - emotion: "I never saw that ending coming, not for a second."
+      neutral: "I saw that ending coming from the first few pages."
+
+  anticipation:
+    - emotion: "I keep checking the clock; the results arrive tonight."
+      neutral: "I checked the clock once; the results arrive tonight."
+    - emotion: "One more week and we finally board that plane."
+      neutral: "In one more week we are scheduled to board that plane."
+    - emotion: "I can already picture how the opening night will feel."
+      neutral: "I have already read the schedule for the opening night."
