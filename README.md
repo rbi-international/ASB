@@ -71,7 +71,7 @@ ASB/
 
 ## Reproducibility
 
-Every experiment is reproducible from a single command on a machine with one 6 GB GPU and 32 GB RAM. Full run provenance (config, seed, environment, git commit) is saved per run under `experiments/experiment_XXX/runs/`.
+Every experiment is reproducible from a single command on a machine with one 6 GB GPU and 32 GB RAM. Full run provenance (config, seed, environment, git commit) is saved per run under `experiments/experiment_XXX/runs/`. Install from `requirements.lock.txt` rather than `requirements.txt`, since it pins the exact versions the results were produced with and the behavior of transformers and torch APIs varies across versions.
 
 ## Roadmap
 
