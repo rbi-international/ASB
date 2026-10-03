@@ -1,6 +1,6 @@
 """Diagnostics for a saved Experiment 001 extraction run.
 
-Usage: python scripts/analyze_extraction.py [run_dir]
+Usage: python scripts/analyze_extraction.py [run_dir] [--centered]
 
 Reads raw_activations.pt from a run folder (default: the latest run under
 experiments/experiment_001_baseline_replication/runs/) and reports, per
@@ -27,6 +27,17 @@ category, two things that say whether the contrastive pairs are well written:
    deviations of the null. There is no fixed threshold to clear: what counts
    as a high cosine depends on how widely the prompts vary in topic, which is
    category-specific and set by how the pairs were written.
+
+3. Optional, with --centered: the same split-half cosine and flip-null after
+   subtracting the across-category mean vector. Neutral sentences written in a
+   shared style across categories put the same component into every
+   category's vector, and that component also makes the halves agree. The
+   centered table removes it, so a category whose raw cosine clears its null
+   only because of shared neutral style will fall back toward the null here.
+   The mean is taken over the other categories' full difference-in-means
+   vectors (leave-one-out), so a category is never centered on its own signal.
+   It is subtracted from every pair's difference before splitting or flipping,
+   so the flip-null is built from the same centered data as the real cosine.
 
 What this does not say: nothing here measures steering effectiveness. A
 category clearing its null means its vector reflects a real, consistent
@@ -136,8 +147,12 @@ def split_half_cosines(
     splits: int,
     rng: np.random.Generator,
     flip: bool = False,
+    offset: np.ndarray | None = None,
 ) -> np.ndarray | None:
     """Cosines between vectors built from random halves, one per split.
+
+    With `offset`, that vector is subtracted from every pair's difference
+    first, so both the real cosine and the flip-null see the centered data.
 
     With flip=True, the emotion and neutral labels are swapped at random within
     each pair before each split. Every pair still contributes the same sentences
@@ -153,6 +168,8 @@ def split_half_cosines(
         return None
 
     differences = emotion - neutral  # one vector per pair
+    if offset is not None:
+        differences = differences - offset
     half = n_pairs - n_pairs // 2  # first half takes the odd pair
     cosines = []
     for _ in range(splits):
@@ -172,18 +189,53 @@ def split_half_cosines(
     return np.asarray(cosines)
 
 
+def leave_one_out_means(activations: dict[str, dict[str, np.ndarray]]) -> dict[str, np.ndarray]:
+    """For each category, the mean of every other category's full-pair vector."""
+    vectors = {
+        category: diff_in_means(sides["emotion"], sides["neutral"], np.arange(sides["emotion"].shape[0]))
+        for category, sides in activations.items()
+    }
+    total = sum(vectors.values())
+    k = len(vectors)
+    return {category: (total - v) / (k - 1) for category, v in vectors.items()}
+
+
+COSINE_HEADER = f"{'real cos':>12}{'flip-null':>16}{'null p95':>10}{'p':>8}"
+
+
+def cosine_cells(real: np.ndarray | None, null: np.ndarray | None) -> str:
+    """The real cosine, flip-null mean and spread, null 95th percentile and p."""
+    if real is None or null is None:
+        return f"{'-':>12}{'-':>16}{'-':>10}{'-':>8}"
+    # Share of the null at or above the real cosine. The null can be bimodal
+    # when one direction dominates, so a standard-deviation gap would mislead;
+    # this share does not.
+    p = float(np.mean(null >= real.mean()))
+    return (
+        f"{real.mean():>12.3f}"
+        f"{null.mean():>10.3f} +-{null.std():>4.2f}"
+        f"{np.quantile(null, 0.95):>10.3f}"
+        f"{p:>8.2f}"
+    )
+
+
 def report(
     activations: dict[str, dict[str, np.ndarray]],
     counts: tuple[int, ...],
     subsamples: int,
     splits: int,
     seed: int,
+    centered: bool = False,
 ) -> None:
-    """Print the per-category table. One RNG, seeded once, for the whole report."""
+    """Print the per-category table. One RNG, seeded once, for the whole report.
+
+    The centered table, when asked for, runs after the raw one, so adding it
+    leaves the raw numbers for a given seed unchanged.
+    """
     rng = np.random.default_rng(seed)
 
     header = f"{'category':<14}{'pairs':>6}  " + "".join(f"{f'n={c}':>10}" for c in counts)
-    header += f"{'real cos':>12}{'flip-null':>16}{'null p95':>10}{'p':>8}"
+    header += COSINE_HEADER
     print(header)
     print("-" * len(header))
 
@@ -203,18 +255,25 @@ def report(
             mean, _std, exact = norms[count]
             row += f"{mean:>9.3f}{'*' if exact else ' '}"
         if real is None or null is None:
-            row += f"{'-':>12}{'-':>16}{'-':>10}{'-':>8}"
             skipped.append(category)
-        else:
-            # Share of the null at or above the real cosine. The null can be
-            # bimodal when one direction dominates, so a standard-deviation gap
-            # would mislead; this share does not.
-            p = float(np.mean(null >= real.mean()))
-            row += f"{real.mean():>12.3f}"
-            row += f"{null.mean():>10.3f} +-{null.std():>4.2f}"
-            row += f"{np.quantile(null, 0.95):>10.3f}"
-            row += f"{p:>8.2f}"
+        row += cosine_cells(real, null)
         print(row)
+
+    if centered:
+        print()
+        if len(activations) < 2:
+            print("centered table needs at least 2 categories, skipped")
+        else:
+            offsets = leave_one_out_means(activations)
+            print("after subtracting the mean vector of the other categories")
+            centered_header = f"{'category':<14}{'pairs':>6}  " + COSINE_HEADER
+            print(centered_header)
+            print("-" * len(centered_header))
+            for category, sides in activations.items():
+                emotion, neutral = sides["emotion"], sides["neutral"]
+                real = split_half_cosines(emotion, neutral, splits, rng, offset=offsets[category])
+                null = split_half_cosines(emotion, neutral, splits, rng, flip=True, offset=offsets[category])
+                print(f"{category:<14}{emotion.shape[0]:>6}  " + cosine_cells(real, null))
 
     print()
     print(f"seed {seed}, {subsamples} subsamples per count, {splits} random splits")
@@ -231,6 +290,11 @@ def report(
     print("on its null (p near 1, real cosine inside the null spread) has pairs that do")
     print("not agree. Clearing the null says the vector is real, not that it steers")
     print("generation, which is SSR's job and is not measured here.")
+    if centered:
+        print()
+        print("Centered table: a category that clears its null raw but not centered owes")
+        print("its agreement to a component shared with the other categories, most likely")
+        print("the shared style of the neutral sentences, not to its own emotion.")
 
 
 def main() -> None:
@@ -245,12 +309,16 @@ def main() -> None:
                         help=f"random splits for the cosine (default: {DEFAULT_SPLITS})")
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED,
                         help=f"seed, printed with the table (default: {DEFAULT_SEED})")
+    parser.add_argument("--centered", action="store_true",
+                        help="also report the cosine and flip-null after subtracting the "
+                             "across-category mean vector")
     args = parser.parse_args()
 
     run_dir = Path(args.run_dir) if args.run_dir else latest_run()
     print(f"run: {run_dir}")
     activations = load_activations(run_dir)
-    report(activations, tuple(sorted(set(args.counts))), args.subsamples, args.splits, args.seed)
+    report(activations, tuple(sorted(set(args.counts))), args.subsamples, args.splits, args.seed,
+           centered=args.centered)
 
 
 if __name__ == "__main__":
