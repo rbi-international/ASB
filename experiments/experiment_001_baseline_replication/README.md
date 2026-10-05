@@ -1,5 +1,7 @@
 # Experiment 001: Baseline Replication of the Basic vs Nuanced Steering Reliability Gap
 
+Amended 2026-10-04 before any steered generation: extraction now measures the model expressing each emotion (Path B). See [Amendment 1](#amendment-1-2026-10-04-extraction-measures-the-model-expressing-the-emotion-path-b).
+
 ## Hypothesis
 On Qwen2.5-1.5B-Instruct, difference-in-means emotion steering vectors achieve a measurably higher Steering Success Rate (SSR) for basic categories (joy, sadness, anger, fear, surprise, disgust) than for nuanced categories (trust, anticipation), consistent with the reliability gap reported in the 2025 emotion-steering literature.
 
@@ -15,7 +17,7 @@ ASB's headline hypothesis (category-differentiated decay under fine-tuning) pres
 - Prompt-based emotion instruction ("write this in a joyful tone") as the non-mechanistic comparator.
 
 ## Variables
-- Independent: emotion category (8 levels), steering coefficient (swept), injection layer (swept once, then fixed).
+- Independent: emotion category (8 levels), steering coefficient (swept). Injection layer is fixed, not swept (corrected in Amendment 1).
 - Dependent: SSR, Semantic Coherence Retention (SCR).
 - Controlled: model (Qwen2.5-1.5B-Instruct, 4-bit), prompt set, seed set, generation parameters.
 
@@ -42,3 +44,78 @@ Each run writes `runs/<timestamp>/` containing: resolved config, seeds, environm
 python scripts/run_experiment.py --experiment 001
 ```
 (Entry point to be implemented; this file is the pre-registration.)
+
+## Amendment 1 (2026-10-04): extraction measures the model expressing the emotion (Path B)
+
+Adopted before any steered generation was produced. It replaces the extraction convention used by the first full extraction run and fixes the injection rule for `steering.py`. Nothing else in this pre-registration changes.
+
+### Rationale
+The first full run (Path A) placed each sentence in the user turn and read the residual stream at the first-generated-token position: the last token of the chat-templated prompt with `add_generation_prompt=True`, following the Re-Align workshop paper (Appendix B, p14). A vector read there measures how the model's state differs when a *user* has expressed the emotion. SSR judges whether the *model's output* expresses it. A vector of the first kind may steer the model toward responding to an emotion (consoling, reassuring) instead of expressing it, so SSR would measure a property the vector was not built to encode. Path B extracts the model producing the emotional content itself.
+
+Grounding in the Tier 2 methodology papers:
+- **Contrast design from CAA** (Rimsky et al., ACL 2024). Each pair shares the same question and differs only in the answer letter written into the model's own response, and activations are read at the answer-letter position (p3, Eq. 1). Path B keeps this structure: same context, different assistant output.
+- **Token pooling from RepE's function procedure** (Zou et al., 2023). For functions, the text is placed in the output field of a `USER: ... / ASSISTANT: <output>` template, and representations are collected from each token of the response, because the model engages with the function when generating every new token (p9 to 10, Eq. 2). RepE's concept procedure is different: the stimulus is placed inside a question and the last token is read (Eq. 1). That is what RepE uses for emotion, and it measures the model perceiving the concept, which is closer to Path A. Path B treats expressing an emotion as a function. One difference from RepE: RepE varies the user instruction and holds the output fixed, while Path B holds the instruction fixed and varies the output, as CAA does.
+
+### Prompt presentation
+- Every sentence, emotion and neutral, is the assistant turn of a two-turn chat that follows one fixed user turn. The exact user string is:
+
+  ```
+  Write one sentence.
+  ```
+
+  It is identical for all 320 prompts and both poles, so it cancels in the difference. It names no emotion and fits both first-person and third-person sentences. It is recorded verbatim in provenance.
+- The chat template is applied with each model's own tokenizer and no added system message. Where a template inserts its own default system prompt (Qwen2.5), that prompt is kept, because steering applies the template the same way.
+- The 160 pairs in `configs/emotion_prompts.yaml` are reused unchanged; only their presentation changes. The Path B run must record the same `prompts_sha256` as the Path A run (`4bd11430e899...`).
+- **First person and third person are mixed on purpose.** Some sentences are first person ("I recoiled when I saw the worms...") and some third person ("She wrinkled her nose at the sour smell of the rag"). They stay mixed because steered output can express an emotion either as the speaker's own state or through narration, SSR will credit both, and the vector should therefore cover both.
+
+### Fixed template date
+The Llama 3.2 chat template inserts the current date into a system header unless a date is supplied, which would make the prompt and its activations depend on the day of the run. For every model whose chat template reads a date variable, the date is fixed to `26 Jul 2024`, the Llama 3.2 template's own fallback value. The same fixed date is used for extraction and for steering. Extraction checks each template for a date variable instead of assuming which models have one; the check is expected to fire for the two Llama 3.2 models only. Provenance records the fixed date (or that none applied) and the full rendered text of one templated example, so the exact context the model saw can be inspected.
+
+### Read position
+- Layer unchanged: the output of decoder block 14 (0-based), captured by a forward hook on that block.
+- Per prompt: the mean of the layer output over the sentence's own tokens. Excluded: everything before the sentence (any system text, the user turn, the assistant header) and the template tokens after it (end of turn). The span is located by checking that the full templated sequence starts with exactly the token ids of the same conversation templated up to the assistant header (`add_generation_prompt=True`). Extraction fails loudly if that check fails or the end-of-turn token cannot be found.
+- Steering vector per category: the mean of the per-prompt means for the emotion pole minus the same for the neutral pole, as before.
+- **Why the mean and not the last token.** The last token of these sentences is nearly always ".", while the emotional content sits mid-sentence. The vector will be added at every generated token, so it should describe the average state while emotional content is being produced, which is RepE's rationale for functions. CAA reads a single token only because its behaviour is a single answer letter.
+- **Saved files.** `raw_activations.pt` keeps one pooled vector per prompt (pairs by hidden size), so `scripts/analyze_extraction.py` runs unchanged. The per-token activations over each sentence span are saved separately in `token_activations.pt`, so other poolings (last token, for example) can be checked later without another forward pass.
+- **Provenance strings.** `token_position`: "mean over the assistant-turn tokens of the sentence (template and end-of-turn tokens excluded)". `prompt_template`: "chat template, fixed user turn, sentence as the assistant turn". New fields hold the user string, the template date, and the rendered example.
+
+### Injection rule for steering.py
+- The vector is added at the same point it was read: the output of decoder block 14, through a forward hook on that block (not a pre-hook, which would act one block earlier).
+- It is added to **generated tokens only**. No prompt position is steered, including the end of the assistant header. This is CAA's rule (p4: "every token position of the generated text after the end of the initial prompt"; p2: "all and only token positions after the original prompt"). It also matches extraction, which excludes the header from the read span.
+- **One unsteered token.** The first output token is predicted from the header position, which is not steered, so each generation's first token is chosen without steering. This is one token per generation; it is documented here rather than worked around.
+- Because generation uses a KV cache, each token's residual stream is computed once. Adding the vector to the new token at every step therefore steers every generated position exactly once; nothing is re-added to earlier tokens.
+
+### Correction to the Variables list
+The Variables section originally read:
+
+> Independent: emotion category (8 levels), steering coefficient (swept), injection layer (swept once, then fixed).
+
+That contradicted the locked v1.0 scope in the main README, which fixes a single mid-layer and defers layer sweeping to v2.0 (Scope Policy). The line now reads "Independent: emotion category (8 levels), steering coefficient (swept). Injection layer is fixed, not swept (corrected in Amendment 1)." The layer is not an independent variable in Experiment 001, and no layer sweep is run.
+
+The fixed layer for each model is half its decoder depth (0-based index into the decoder blocks), matching layer 14 of 28 for Qwen2.5-1.5B:
+
+| Model | Decoder layers | Fixed layer |
+|---|---|---|
+| Qwen2.5-1.5B-Instruct | 28 | 14 |
+| Llama-3.2-1B-Instruct | 16 | 8 |
+| Llama-3.2-3B-Instruct | 28 | 14 |
+| gemma-2-2b-it | 26 | 13 |
+| Phi-3.5-mini-instruct | 32 | 16 |
+
+Experiment 001 itself runs on Qwen2.5-1.5B only; the other rows fix the rule in advance for later experiments on the full grid. Layer counts come from each model's published config and are checked against the loaded model at extraction time, with the layer index recorded in provenance as now.
+
+### Threats to validity added by Path B
+- **Emotion-word naming.** Extraction places hand-written sentences in the assistant turn; the model is given them and does not choose them. The vector therefore partly encodes "an emotion word is the current token", and injecting it may push the model to name emotions literally rather than shift its tone. SSR could then credit naming that a reader would not call expression. `docs/judge_protocol.md` must rule, before the first steered run, on whether naming an emotion counts as expressing it, and the rubric is applied as written. SCR flags degenerate repetition but does not settle this question.
+- **Span length.** Vectors come from sentences of about 12 tokens and are applied across full generations. This is standard practice for steering vectors and is noted, not corrected.
+- **Different user turns.** The user turn differs between extraction (the fixed string above) and steering (the evaluation prompts). The extraction user turn is identical on both poles, so it cancels in the difference, and the vector carries nothing from it by design.
+
+### The Path A run
+- The Path A run `runs/20261003T031322Z` (provenance `token_position`: "first_generated_token (position -1 of the templated prompt)") is superseded. It stays in `runs/` as a record and is not used for steering.
+- Its analysis result (all eight categories clearing their flip-nulls, raw and centered) does not carry over. The text-level fixes to the pairs give a reason to expect Path B to pass, but the Path B run must pass on its own. Gate before `steering.py` is written: re-run extraction under Path B, then `scripts/analyze_extraction.py --centered`, and all eight categories clear their nulls.
+- Vector norms are not comparable between the two runs, because averaging over tokens changes their scale. The norm curve is read within one run only.
+- The earlier run `runs/20260925T024040Z` is the three-seed-pair pipeline smoke test and has no bearing on results.
+
+### Open items, parked for evaluation.py
+These are not decided by this amendment and must be settled before the first steered run:
+- **Judge model**: local or API. This affects cost, and the rubric (including the naming ruling above) must be written for the chosen judge.
+- **Steering-evaluation prompt set**: neutral, open-ended prompts, separate from the extraction pairs, with a held-out split for coefficient selection. It does not exist yet.
