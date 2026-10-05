@@ -1,20 +1,28 @@
 # Locked v1.0 model grid. Additions require a scope review (see README, Scope Policy).
+# decoder_layers is the published depth; the steering layer is fixed at half of
+# it, as a 0-based index (Experiment 001 README, Amendment 1). Extraction checks
+# decoder_layers against the loaded model and fails if they differ.
 models:
   - id: Qwen/Qwen2.5-1.5B-Instruct
     family: qwen
     params_b: 1.5
+    decoder_layers: 28
   - id: meta-llama/Llama-3.2-1B-Instruct
     family: llama
     params_b: 1.0
+    decoder_layers: 16
   - id: meta-llama/Llama-3.2-3B-Instruct
     family: llama
     params_b: 3.0
+    decoder_layers: 28
   - id: google/gemma-2-2b-it
     family: gemma
     params_b: 2.0
+    decoder_layers: 26
   - id: microsoft/Phi-3.5-mini-instruct
     family: phi
     params_b: 3.8
+    decoder_layers: 32
 inference:
   default_quantization: nf4      # 6 GB VRAM budget
   quantization_axis: [fp16, int8, nf4]

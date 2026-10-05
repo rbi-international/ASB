@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))  # src layout, no install step needed
 
-from asb.extraction import DEFAULT_LAYER, DEFAULT_SEED, run_extraction  # noqa: E402
+from asb.extraction import DEFAULT_SEED, run_extraction  # noqa: E402
 
 
 def main() -> None:
@@ -22,14 +22,14 @@ def main() -> None:
                         help="experiment number; 002 and 003 land with their own code")
     parser.add_argument("--model", default=None,
                         help="model id from configs/models.yaml (default: Qwen2.5-1.5B-Instruct)")
-    parser.add_argument("--layer", type=int, default=DEFAULT_LAYER,
-                        help=f"decoder layer to read the residual stream from (default: {DEFAULT_LAYER})")
+    # No --layer option: the layer is fixed at half the decoder depth
+    # (Experiment 001 README, Amendment 1), so it is not a run setting.
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED,
                         help=f"random seed, recorded in provenance (default: {DEFAULT_SEED})")
     args = parser.parse_args()
 
     if args.experiment == "001":
-        run_extraction(model_id=args.model, layer=args.layer, seed=args.seed)
+        run_extraction(model_id=args.model, seed=args.seed)
 
 
 if __name__ == "__main__":
