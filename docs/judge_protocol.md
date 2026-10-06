@@ -238,3 +238,21 @@ If a criterion fails, the protocol is revised and the slice re-run before any fu
 - the test-retest subset: 200 outputs judged twice, so 400 calls.
 
 That is about 600 calls in total. At Batch API prices cached on 2026-09-25 and the per-call token assumptions used earlier, it comes to roughly $5 to $25, depending mainly on how many thinking tokens the chosen effort level uses. Check current prices before submitting.
+
+## Protocol Amendment 1 (2026-10-06): go/no-go criterion 4 measures what SSR counts
+
+Made before any hand label exists, so it cannot have been shaped by the labels. Numbered separately from the Experiment 001 README amendments. The judge prompt, the definitions and the prompt version are unchanged.
+
+**Why.** Criterion 4 in Section 11 used per-category recall: of the items the author labelled with an emotion, the fraction the judge also labelled with it. Recall depends on how often a category's steered outputs actually read as that emotion, which is a property of the vector, not of the judge. If the trust vector rarely produces text that reads as trust, the author labels few items as trust, recall cannot be estimated, and the criterion fails for a reason unrelated to the judge's reliability. What could fake the hypothesis is the judge answering SSR's own question differently from a human, so the criterion now tests that question directly.
+
+**Larger draw for trust and anticipation.** The validation set in Section 9 changes from 10 items per category (80) to 20 items each for trust and anticipation and 10 for each of the six basic categories (100). A judge that misses trust or anticipation more often than a human would lower SSR for exactly the two categories the hypothesis predicts to score lower, so such a deficit would bias the result in the hypothesis's favour. Criterion 4 must therefore be able to detect a moderate deficit on those two categories, not only a severe one. With 10 items, the 95% Wilson interval for an observed agreement of 0.7 runs from about 0.40 to 0.89; with 20 items it narrows to about 0.48 to 0.85. The six basic categories keep 10 items each, since they set the comparison level rather than being the categories under test. The draw method, seed and disjointness from the pilot and test-retest sets are unchanged. The paid validation slice grows from about 600 to about 620 calls (Section 11).
+
+**New criterion 4.** For each category c, take the validation items drawn from c's steered outputs (20 for trust and anticipation, 10 for each basic category). For each item, ask SSR's binary question twice:
+- the judge's answer: is the judge's chosen emotion c;
+- the author's answer: is the author's chosen emotion c.
+
+The **binary agreement** for c is the fraction of its drawn items where the two answers match, reported with a 95% Wilson interval. The criterion passes if, for trust and for anticipation, the upper bound of the Wilson interval is at least the median binary agreement of the six basic categories, that is, neither is clearly below the basic categories. This stays measurable however rarely an emotion appears: if both say "not trust" for a weak trust output, that counts as agreement.
+
+**Recall becomes secondary.** Per-category recall and precision (Section 9) are still reported, with Wilson intervals, where they can be assessed. They are never used for go/no-go. Where Section 9 calls recall "the critical number", this amendment replaces that: binary agreement on each category's drawn items is the critical number.
+
+Criteria 1, 2, 3 and 5 in Section 11 are unchanged.
