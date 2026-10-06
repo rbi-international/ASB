@@ -10,3 +10,4 @@ scipy>=1.13
 matplotlib>=3.9
 pyyaml>=6.0
 pypdf>=4.0
+anthropic  # paid judge runs only (evaluation.py); pin the installed version in requirements.lock.txt

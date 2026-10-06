@@ -240,7 +240,7 @@ class Steerer:
     def generate(
         self,
         prompts: list[str],
-        category: str,
+        category: str | None,
         coefficient: float,
         seed: int = DEFAULT_SEED,
         settings: GenerationSettings = GenerationSettings(),
@@ -248,15 +248,18 @@ class Steerer:
         """Generate one steered reply per prompt, as one batch.
 
         Adds coefficient * residual_scale * unit vector for `category` at each
-        generated token. Coefficient 0 adds no hook, so it is the plain model.
-        Negative coefficients steer away from the category. Returns one record
-        per prompt, holding the output and its full provenance.
+        generated token. Coefficient 0 adds no hook, so it is the plain model;
+        category may then be None, for unsteered outputs shared by every
+        category. Negative coefficients steer away from the category. Returns
+        one record per prompt, holding the output and its full provenance.
 
         Outputs depend on the batch's composition (sampling order, padding),
         so batch_size and batch_index are recorded; reproducing a generation
         means re-running the same batch with the same seed.
         """
-        if category not in self.directions:
+        if category is None and coefficient != 0:
+            raise ValueError("a non-zero coefficient needs a category to steer toward")
+        if category is not None and category not in self.directions:
             raise ValueError(f"unknown category {category!r}; have {sorted(self.directions)}")
         if not math.isfinite(coefficient):
             raise ValueError(f"coefficient must be finite, got {coefficient}")
@@ -312,7 +315,7 @@ class Steerer:
 
     def _provenance(
         self,
-        category: str,
+        category: str | None,
         coefficient: float,
         seed: int,
         settings: GenerationSettings,
@@ -337,7 +340,7 @@ class Steerer:
             ),
             "residual_scale": self.residual_scale,
             "added_norm": abs(coefficient) * self.residual_scale,
-            "vector_norm_raw": self.vector_norms[category],
+            "vector_norm_raw": self.vector_norms[category] if category else None,
             "injection": (
                 "forward hook on the block output; generated tokens only; "
                 "first output token unsteered (Experiment 001 Amendment 1)"
