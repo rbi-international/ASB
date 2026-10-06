@@ -2,6 +2,8 @@
 
 Amended 2026-10-04 before any steered generation: extraction now measures the model expressing each emotion (Path B). See [Amendment 1](#amendment-1-2026-10-04-extraction-measures-the-model-expressing-the-emotion-path-b).
 
+Amended 2026-10-06 before any evaluation run: steering strength grid, selection rule, generation settings, prompt set, baselines and judging are fixed. See [Amendment 2](#amendment-2-2026-10-06-evaluation-settings-fixed-before-any-evaluation-run).
+
 ## Hypothesis
 On Qwen2.5-1.5B-Instruct, difference-in-means emotion steering vectors achieve a measurably higher Steering Success Rate (SSR) for basic categories (joy, sadness, anger, fear, surprise, disgust) than for nuanced categories (trust, anticipation), consistent with the reliability gap reported in the 2025 emotion-steering literature.
 
@@ -119,3 +121,67 @@ Experiment 001 itself runs on Qwen2.5-1.5B only; the other rows fix the rule in 
 These are not decided by this amendment and must be settled before the first steered run:
 - **Judge model**: local or API. This affects cost, and the rubric (including the naming ruling above) must be written for the chosen judge.
 - **Steering-evaluation prompt set**: neutral, open-ended prompts, separate from the extraction pairs, with a held-out split for coefficient selection. It does not exist yet.
+
+## Amendment 2 (2026-10-06): evaluation settings fixed before any evaluation run
+
+Recorded before any evaluation run and before any judged output exists, so that no setting below can be tuned after seeing results. It resolves both open items parked at the end of Amendment 1. Nothing in Amendment 1 changes.
+
+**Earlier exploratory steering.** Before this amendment, steering was checked by eye on Qwen2.5-1.5B and gemma-2-2b: one prompt, one seed, at strengths 0, 0.25, 0.5 and 1.0, with no judge. Those checks informed the grid below (fluent and steered at 0.5 on both models; degraded at 1.0, severely on Gemma). They are not results and are not reported as such.
+
+### Steering strength grid
+Strengths: **0, 0.25, 0.5, 0.75, 1.0**.
+
+Each is a fraction of the model's typical residual-stream size at the fixed layer, in the units `src/asb/steering.py` already uses: the median per-token norm over the neutral sentence tokens of that model's Path B extraction run. Strength 0 attaches no steering hook, so it is the plain model.
+
+### Choosing the strength
+For each model and each category, selection uses the 20 held-out prompts only:
+1. Generate at every non-zero strength, plus the unsteered outputs at strength 0, for the held-out prompts and all three seeds.
+2. Judge them, and compute SSR and SCR per strength as defined in `docs/judge_protocol.md`.
+3. **Eligible strengths** are the non-zero strengths whose SCR is at least **0.85**: the steered text keeps at least 85% of the matched unsteered text's coherence.
+4. **Select** the eligible strength with the highest SSR. If two eligible strengths tie on SSR, select the lower one, since less intervention reaches the same effect.
+5. **If no strength is eligible**, the category has no usable strength for that model. Its headline SSR is the strength-0 base rate, and it is flagged as "not steerable within the coherence floor". This counts it as a steering failure rather than hiding it, which is the honest reading for RQ1. The flag can hide two different failures: the vector does not push the emotion at all, or it pushes the emotion but the text breaks before the effect gets strong. So for any flagged category, a clearly labelled secondary figure is also reported: its best SSR across the non-zero strengths ignoring the floor, together with that strength's SCR. As with the headline, the strength is chosen on the held-out prompts (highest SSR, ties to the lower strength), and its SSR and SCR are reported on the evaluation prompts. Picking the maximum directly on the evaluation prompts would inflate it. The headline stays the strict value. The secondary figure only explains why the category failed and is never used in the basic-versus-nuanced comparison.
+
+The selected strength is frozen. It is used unchanged for the 40 evaluation prompts, and for the same model and category in Experiments 002 and 003. Re-choosing it at each fine-tuning checkpoint or quantization level would absorb the decay those experiments measure. Selection results (SSR and SCR per strength on the held-out prompts, and the strength chosen) are written to the run record before any evaluation-prompt output is generated.
+
+### Reporting
+For each model and category:
+- the full SSR and SCR curves against strength, on the 40 evaluation prompts;
+- the selected strength, and the headline SSR and SCR at that strength;
+- the strength-0 base rate next to every SSR.
+
+**Shared-strength check.** Every category is also reported at one shared strength, **0.5**, fixed here in advance. The basic-versus-nuanced comparison is reported at both the selected strengths and the shared strength. If the gap appears only under per-category selection, it is reported as depending on selection, not as a property of the categories.
+
+### Generation settings
+| Setting | Value |
+|---|---|
+| Decoding | sampling |
+| temperature | 0.7 |
+| top_p | 0.9 |
+| max_new_tokens | 128 |
+| Seeds | **0, 1, 2** |
+| Prompt format | each prompt as a single user turn through the model's chat template, with the pinned template date where one applies (Amendment 1) |
+
+**Batches.** Generation is batched, and with sampling an output depends on the rest of its batch. So batch composition is fixed. For each (model, category, strength, seed), one batch holds every prompt of the split, in file order. If memory requires smaller batches, the split is cut into fixed-size consecutive chunks in file order, and the chunk size is recorded per run. Every generation record stores its batch size and index, as `steering.py` already does.
+
+**Shared unsteered outputs.** Unsteered outputs (strength 0) are the same for every category, so they are generated once per (model, prompt, seed) and shared as the matched outputs for SCR.
+
+### Prompt set
+- **File:** `configs/eval_prompts.yaml`, 60 prompts, SHA-256 `f41825095b9f622112dd5a561c14bb07f2cab086082dbb823a18fac081711a1a`.
+- **Split:** 40 evaluation prompts (`eval`) and 20 held-out prompts (`heldout`). The split was drawn with seed **20261006** (`random.Random(seed).shuffle` over ids 1 to 60, first 20 held out). It is fixed and is never re-drawn.
+- **Provenance:** drafted by GPT-6 Astra High, a model family outside the steered grid, then reviewed by hand for neutrality, no self-reference, topical variety, and no overlap with the extraction pairs. All 60 passed review unchanged.
+- **Hash check:** every evaluation run records the file's SHA-256 and stops if it differs from the value above.
+
+### Baselines
+- **Unsteered:** strength 0, the plain model, on the same prompts and seeds.
+- **Prompt-based comparison:** no steering. The evaluation prompt is followed by one fixed sentence asking for the target emotion directly:
+
+  ```
+  {prompt} Write it so that it conveys {emotion}.
+  ```
+
+  Here `{emotion}` is the category name exactly as listed in `configs/emotions.yaml`. The output is judged by the same blinded request as every other output; the judge never sees the added sentence. Its SSR uses the same formula, and its SCR is matched to the unsteered output for the same prompt and seed.
+
+### Judging
+- **Rules:** all scoring follows `docs/judge_protocol.md` as committed in `98faa23`. Judge-protocol changes are made only as dated amendments in that file. Each evaluation run records the judge prompt version (the protocol's hash of its prompt template and definitions).
+- **Local dry run:** a local judge is used only to test the pipeline end to end. Its records are tagged with their backend, and none of its numbers are reported as results.
+- **Scoring:** results come only from Claude Fable 5.1 under the frozen protocol. The paid validation slice and its go/no-go criteria come first (protocol, Section 11).
