@@ -1,0 +1,138 @@
+# Neutral evaluation prompts for Experiment 001 steering evaluation.
+# Drafted with GPT-6 Astra High (a model family outside the steered grid, to avoid
+# circularity) from docs spec eval_prompts_spec.md, then manually reviewed for
+# neutrality, non-self-reference, topical variety and no overlap with the
+# extraction pairs. All 60 passed review unchanged.
+# Split: 40 evaluation, 20 held-out (coefficient selection only).
+# The split is a fixed random shuffle of prompt order with the seed below;
+# it must not be re-drawn. Prompt ids are their 1-based position in the reviewed list.
+meta:
+  total: 60
+  n_eval: 40
+  n_heldout: 20
+  split_seed: 20261006
+  split_method: "python random.Random(seed).shuffle over ids 1..60; first 20 held out"
+  source_model: "GPT-6 Astra High"
+  reviewed: true
+eval:
+  - id: 1
+    prompt: "Describe the arrangement of desks in an office."
+  - id: 2
+    prompt: "Write about a person folding towels at a table."
+  - id: 3
+    prompt: "Describe the surface of a stone beside a footpath."
+  - id: 5
+    prompt: "Describe the layout of a bus terminal."
+  - id: 6
+    prompt: "Write about a technician adjusting the height of a monitor."
+  - id: 7
+    prompt: "Describe how clouds move across the sky during an afternoon."
+  - id: 8
+    prompt: "Explain how a cardboard box is assembled for packing."
+  - id: 13
+    prompt: "Describe the arrangement of stalls at a produce market."
+  - id: 14
+    prompt: "Write about a person recording measurements in a notebook."
+  - id: 15
+    prompt: "Describe how shadows change across a courtyard during the day."
+  - id: 16
+    prompt: "Explain how a shirt is made from pieces of fabric."
+  - id: 17
+    prompt: "Describe the seating and aisles inside a passenger airplane."
+  - id: 19
+    prompt: "Describe the pattern of branches on a tree."
+  - id: 21
+    prompt: "Describe the layout of a public swimming pool."
+  - id: 24
+    prompt: "Explain how a bicycle tire is inflated using a pump."
+  - id: 28
+    prompt: "Explain how dough is rolled and cut into noodles."
+  - id: 29
+    prompt: "Describe the paths and signs within a botanical garden."
+  - id: 30
+    prompt: "Write about a surveyor positioning a tripod beside a road."
+  - id: 31
+    prompt: "Describe how water moves through a roadside drainage channel."
+  - id: 32
+    prompt: "Explain how photographs are arranged on a printed page."
+  - id: 33
+    prompt: "Describe the counters and machines inside a laundromat."
+  - id: 34
+    prompt: "Write about a passenger placing a suitcase beneath a seat."
+  - id: 35
+    prompt: "Describe the layers visible in a roadside rock formation."
+  - id: 36
+    prompt: "Explain how a woven mat is made from strips."
+  - id: 37
+    prompt: "Describe the shelves and labels in a storage room."
+  - id: 40
+    prompt: "Explain how tea leaves are measured and steeped in water."
+  - id: 41
+    prompt: "Describe a street intersection with traffic lights and pedestrian crossings."
+  - id: 42
+    prompt: "Write about a camera operator adjusting a lens before recording."
+  - id: 43
+    prompt: "Describe the shape and texture of a pine cone."
+  - id: 44
+    prompt: "Explain how a spreadsheet is organized into rows and columns."
+  - id: 46
+    prompt: "Write about a person fastening buttons on a coat."
+  - id: 47
+    prompt: "Describe the position of sandbars within a river channel."
+  - id: 50
+    prompt: "Write about a laboratory worker labeling containers on a bench."
+  - id: 51
+    prompt: "Describe the hands and markings on an analog clock."
+  - id: 53
+    prompt: "Describe the arrangement of benches around a town square."
+  - id: 55
+    prompt: "Describe the formation of condensation on a drinking glass."
+  - id: 57
+    prompt: "Describe the shape and supports of a pedestrian overpass."
+  - id: 58
+    prompt: "Write about a groundskeeper marking lines on a sports field."
+  - id: 59
+    prompt: "Describe the position of reeds along the edge of a pond."
+  - id: 60
+    prompt: "Explain how a microphone converts sound into an electrical signal."
+heldout:
+  - id: 4
+    prompt: "Explain how rice is prepared in a saucepan."
+  - id: 9
+    prompt: "Describe the exterior of an apartment building from street level."
+  - id: 10
+    prompt: "Write about a cyclist following a marked lane."
+  - id: 11
+    prompt: "Describe the compartments inside a sewing kit."
+  - id: 12
+    prompt: "Explain how a potter shapes clay on a wheel."
+  - id: 18
+    prompt: "Write about a clerk placing documents into numbered folders."
+  - id: 20
+    prompt: "Explain how paint is applied to an interior wall."
+  - id: 22
+    prompt: "Write about a person setting plates around a dining table."
+  - id: 23
+    prompt: "Describe the appearance of a field after rainfall."
+  - id: 25
+    prompt: "Describe the entrance and corridors of a conference center."
+  - id: 26
+    prompt: "Write about a delivery worker moving parcels onto a trolley."
+  - id: 27
+    prompt: "Describe the shape and markings of a ceramic jug."
+  - id: 38
+    prompt: "Write about a person brushing dust from a windowsill."
+  - id: 39
+    prompt: "Describe the movement of leaves in a steady breeze."
+  - id: 45
+    prompt: "Describe the arrangement of equipment in a printing workshop."
+  - id: 48
+    prompt: "Explain how a lampshade is attached to a lamp."
+  - id: 49
+    prompt: "Describe the platforms and walkways of a ferry landing."
+  - id: 52
+    prompt: "Explain how a floor is measured before tiles are laid."
+  - id: 54
+    prompt: "Write about a person sorting coins by their size."
+  - id: 56
+    prompt: "Explain how a map represents roads, boundaries, and distances."
