@@ -35,7 +35,7 @@ The judge picks one label from nine: the eight Plutchik categories or "none". It
 The eight categories are listed in a random order for every call, drawn from a seeded generator, and the order shown is stored with the call (Section 5). "none" is always listed last, since it is the residual option, not a ninth emotion. The same order is used for the enum in the output schema (Section 6). This removes any fixed position advantage for one category.
 
 ### Exact prompt
-Each call is a single user message, with no system prompt. The text below is the template; `{CATEGORY_LIST}` is the eight lines from the definitions table in randomized order, and `{TEXT}` is the output being judged, inserted verbatim.
+Each call is a single user message, with no system prompt. The text below is the template; `{CATEGORY_LIST}` is the eight lines from the definitions table in randomized order, and `{TEXT}` is the output being judged, inserted verbatim. Its coherence paragraph was amended by Protocol Amendment 2, which records the original wording.
 
 ```
 You will read a short piece of writing and answer two questions about it.
@@ -62,7 +62,7 @@ How to decide:
 - Choose "none" only if no emotion in the list is clearly expressed.
 
 Question 2: coherence.
-Rate how coherent the writing is, as writing, on the scale below. Rate coherence separately from emotion: strong emotion is not a fault, and the choice of emotion must not raise or lower the score. Judge only whether the writing itself is fluent and makes sense, not what it is about.
+Rate how coherent the writing is, as writing, on the scale below. Rate coherence separately from emotion: strong emotion is not a fault, and the choice of emotion must not raise or lower the score. Judge only whether the writing itself is fluent and makes sense, not what it is about. The writing may end mid-sentence because of a length limit; do not count the cut-off ending as a coherence fault.
 5: fully fluent and grammatical; ideas connect; reads as competent writing.
 4: minor slips, such as an odd word or phrase, that do not get in the way of reading.
 3: noticeable errors or awkward, disconnected passages; the meaning can be recovered with some effort.
@@ -215,7 +215,7 @@ Fable 5.1 accepts no temperature setting and always thinks, so judging the same 
 
 **Freezing.** The judge prompt is frozen before the validation set is judged. If validation leads to a prompt change, the new prompt version must be validated on freshly labelled outputs, not on these 80.
 
-**Limitation.** There is a single human labeller. Agreement with one person is a lower bound on validity, not proof of it.
+**Limitation.** There is a single human labeller. Agreement with one person is a lower bound on validity, not proof of it. (Superseded by Protocol Amendment 3, which adds a second independent annotator and an intra-rater check.)
 
 ## 10. Account requirement
 
@@ -256,3 +256,53 @@ The **binary agreement** for c is the fraction of its drawn items where the two 
 **Recall becomes secondary.** Per-category recall and precision (Section 9) are still reported, with Wilson intervals, where they can be assessed. They are never used for go/no-go. Where Section 9 calls recall "the critical number", this amendment replaces that: binary agreement on each category's drawn items is the critical number.
 
 Criteria 1, 2, 3 and 5 in Section 11 are unchanged.
+
+## Protocol Amendment 2 (2026-10-07): cut-off endings are not a coherence fault
+
+Made before any judge call. Generation stops at 128 new tokens (Experiment 001 README, Amendment 2), so many outputs end mid-sentence for a reason that has nothing to do with steering. Without guidance, a judge or a human could score that ending as incoherence and lower SCR for every condition alike, adding noise to the ratio.
+
+**Change.** In the coherence paragraph of the judge prompt (Section 1), this sentence is added after "Judge only whether the writing itself is fluent and makes sense, not what it is about.":
+
+> The writing may end mid-sentence because of a length limit; do not count the cut-off ending as a coherence fault.
+
+The original paragraph read:
+
+> Rate how coherent the writing is, as writing, on the scale below. Rate coherence separately from emotion: strong emotion is not a fault, and the choice of emotion must not raise or lower the score. Judge only whether the writing itself is fluent and makes sense, not what it is about.
+
+**Consequences.**
+- The template text changed, so the judge prompt version (Section 1) changed. Every judge call is made under the new version, and `src/asb/evaluation.py` checks its template against this file, as before.
+- The labelling instructions given to human annotators are generated from the same template, so they carry the same rule.
+- The pilot and validation sets were drawn before this amendment, from generations, not from any judgment; the draw is unchanged. The pilot labels were collected after the annotator received this rule in writing, before the first item was shown. No labels had been locked and no judge call had been made when it was added.
+- Earlier stub-judge records (fake verdicts, never results) were made under the old prompt version and are not reused.
+
+## Protocol Amendment 3 (2026-10-07): second annotator, intra-rater check and a cross-judge
+
+Made before any labels were locked and before any judge call. It strengthens Section 9, which relied on a single labeller.
+
+**Second annotator.** A second independent human annotator, Dr. Gurpreet Singh (a faculty colleague), labels the same 100 validation items. Conditions:
+- a text-only sheet (item id and text, rows in a different order from the author's), and the same labelling instructions;
+- no AI assistance;
+- no access to the author's labels or to any judge output;
+- not told the hypothesis, or which emotions are expected to score lower;
+- labelling in one or two sittings.
+
+**What is reported.**
+- Human-human agreement on the 100 items: Cohen's kappa over the nine labels and percent agreement, overall and within each category's drawn items, plus binary agreement on SSR's question (Protocol Amendment 1) per category, with Wilson intervals.
+- Judge-human agreement against each annotator separately: overall kappa, and per-category binary agreement.
+
+**Criterion 4 must pass against both annotators.** Criterion 4 (as changed by Protocol Amendment 1) is computed twice, against each annotator's labels separately: the judge's binary agreement on trust and on anticipation, compared with the median binary agreement on the six basic categories against the same annotator. It passes only if it passes against both; failing against either is a fail. Why: the author knows the hypothesis, that trust and anticipation should score lower, and the second annotator does not. If either set of labels could lean toward the hypothesis without meaning to, it is the author's, so a pass against the blind annotator is required to rule that out. Go/no-go therefore cannot be decided until the second annotator's labels are locked; until then criterion 4 is not assessable against them, which counts as not passed. Criteria 1, 2, 3 and 5 are unchanged and stay computed as registered. Human-human agreement is reported next to criterion 4 for context only and never turns a failed criterion into a pass.
+
+**Intra-rater check.**
+- The author re-labels a fixed random 20 of the 140 labelled items (pilot and validation), chosen with seed 20261008.
+- The re-label sheet is released only once both of the author's sheets are locked and at least 3 days have passed since the later of the two locks.
+- It carries new item ids, so the earlier labels cannot be looked up, and it is labelled blind to them.
+- Reported: self-agreement as Cohen's kappa over the nine labels and percent agreement, and weighted kappa for coherence.
+
+**Cross-judge (pre-registered secondary analysis).**
+- GPT-6 Astra High is run as a second judge on the 100 validation items under the identical blinded protocol: the same prompt text and prompt version, one text per call, the same per-item category order, and the same JSON schema.
+- Each call records the model name the API returns and any reasoning setting used.
+- Reported: its agreement with each human annotator and with Claude Fable 5.1 (Cohen's kappa overall and per-category binary agreement).
+- It is never used as ground truth and never used for go/no-go.
+- Disclosure: GPT-6 Astra High also drafted the evaluation prompts (`configs/eval_prompts.yaml`). It never saw the outputs it would judge, and its role here is a check on Fable 5.1, not a source of scores.
+
+**Section 11.** The paid Fable 5.1 slice is unchanged at about 620 calls. The cross-judge adds 100 calls to a different API, costed separately when it is implemented.

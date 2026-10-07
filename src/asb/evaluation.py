@@ -72,7 +72,8 @@ DRY_RUN_CATEGORIES = ("joy", "trust")
 DRY_RUN_PROMPTS = 3
 DRY_RUN_SEEDS = (0,)
 
-# --- 2. Judge prompt (docs/judge_protocol.md, Section 1, verbatim) -------------
+# --- 2. Judge prompt (docs/judge_protocol.md, Section 1, verbatim; as amended by
+# Protocol Amendment 2, which added the cut-off-ending sentence) -------------------
 
 JUDGE_MODEL = "claude-fable-5-1"
 JUDGE_MAX_TOKENS = 16000
@@ -102,7 +103,7 @@ How to decide:
 - Choose "none" only if no emotion in the list is clearly expressed.
 
 Question 2: coherence.
-Rate how coherent the writing is, as writing, on the scale below. Rate coherence separately from emotion: strong emotion is not a fault, and the choice of emotion must not raise or lower the score. Judge only whether the writing itself is fluent and makes sense, not what it is about.
+Rate how coherent the writing is, as writing, on the scale below. Rate coherence separately from emotion: strong emotion is not a fault, and the choice of emotion must not raise or lower the score. Judge only whether the writing itself is fluent and makes sense, not what it is about. The writing may end mid-sentence because of a length limit; do not count the cut-off ending as a coherence fault.
 5: fully fluent and grammatical; ideas connect; reads as competent writing.
 4: minor slips, such as an odd word or phrase, that do not get in the way of reading.
 3: noticeable errors or awkward, disconnected passages; the meaning can be recovered with some effort.

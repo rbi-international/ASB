@@ -5,7 +5,11 @@ Usage, in this order:
       Draw the label sets and the test-retest subset from a full (not dry-run)
       evaluation folder's generations. Writes two blind label sheets and a
       separate key file. Costs nothing.
-  (label pilot_sheet.csv, then, with <run> the vector run folder name)
+  python scripts/validation.py export --run <run>
+      Refresh labelling_instructions.txt to the current judge prompt and write
+      validation_sheet_annotator2.csv for the second annotator (Protocol
+      Amendments 2 and 3). <run> is the vector run folder name.
+  (label pilot_sheet.csv, then)
   python scripts/validation.py lock --run <run> --sheet pilot
   python scripts/validation.py judge --run <run> --stage pilot [--paid]
       Judge the 40 pilot items at each effort level; the protocol's rule picks
@@ -15,8 +19,14 @@ Usage, in this order:
   python scripts/validation.py judge --run <run> --stage validation [--paid]
       Judge the 100 validation items once and the 200 test-retest items twice,
       at the chosen effort.
+  python scripts/validation.py lock --run <run> --sheet validation2
+      Lock the second annotator's completed sheet.
+  python scripts/validation.py relabel-sheet --run <run>
+      At least 3 days after the author's later lock: release the 20-item
+      re-label sheet, then 'lock --sheet relabel' once it is labelled.
   python scripts/validation.py report --run <run> [--paid]
-      Agreement, effort choice, test-retest and the go/no-go table.
+      Agreement, effort choice, test-retest, second annotator, intra-rater and
+      the go/no-go table.
 
 Without --paid the stub judge is used, so the whole workflow can be tested for
 free; its numbers are never results. Every command refuses to run out of order.
@@ -61,6 +71,18 @@ THRESHOLDS = {
     "retest_kappa_min": 0.7,
 }
 SUBTLE = ("trust", "anticipation")
+
+# Protocol Amendment 3: second annotator and intra-rater check.
+RELABEL_N = 20                   # of the 140 items the author labelled
+RELABEL_SEED = 20261008
+RELABEL_MIN_DAYS = 3             # after the later of the author's two locks
+ANNOTATOR2_ORDER_SEED = 20261009  # row order of the second annotator's sheet
+SHEETS = {  # sheet name -> (file name, item-id prefix)
+    "pilot": ("pilot_sheet.csv", "P"),
+    "validation": ("validation_sheet.csv", "V"),
+    "validation2": ("validation_sheet_annotator2.csv", "V"),
+    "relabel": ("relabel_sheet.csv", "R"),
+}
 
 VALIDATION_ROOT = ROOT / "experiments" / "experiment_001_baseline_replication" / "runs" / "validation"
 KEY_NAME = "KEY_do_not_open_until_labels_locked.json"
@@ -184,8 +206,11 @@ def cmd_lock(out: Path, sheet: str) -> None:
     if target.exists():
         raise ValueError(f"{target.name} is already locked and cannot change")
     key = json.loads((out / KEY_NAME).read_text(encoding="utf-8"))
-    expected = {k for k in key if k.startswith("V" if sheet == "validation" else "P")}
-    path = out / f"{sheet}_sheet.csv"
+    filename, prefix = SHEETS[sheet]
+    expected = {k for k in key if k.startswith(prefix)}
+    path = out / filename
+    if not path.exists():
+        raise ValueError(f"{filename} does not exist yet")
     with path.open(encoding="utf-8-sig", newline="") as fh:
         rows = list(csv.DictReader(fh))
 
@@ -223,6 +248,80 @@ def locked_labels(out: Path, sheet: str) -> dict[str, dict]:
     key = json.loads((out / KEY_NAME).read_text(encoding="utf-8"))
     labels = json.loads(path.read_text(encoding="utf-8"))["labels"]
     return {key[item]["gen_id"]: v for item, v in labels.items()}
+
+
+def optional_labels(out: Path, sheet: str) -> dict[str, dict] | None:
+    """Locked labels by generation id, or None if that sheet is not locked yet."""
+    return locked_labels(out, sheet) if locked_path(out, sheet).exists() else None
+
+
+# --- 3b. Extra sheets (Protocol Amendments 2 and 3) ------------------------------------
+
+def cmd_export(out: Path) -> None:
+    """Refresh the labelling instructions and write the second annotator's sheet.
+
+    The items were drawn once and are not redrawn; this only adds outputs.
+    Instructions written before Protocol Amendment 2 are kept as a record.
+    """
+    items = load_items(out)
+    current = labelling_instructions()
+    path = out / "labelling_instructions.txt"
+    if path.exists() and path.read_text(encoding="utf-8") != current:
+        old = out / "labelling_instructions_v1.txt"
+        if not old.exists():
+            path.replace(old)
+            print(f"kept the earlier instructions as {old.name}")
+    path.write_text(current, encoding="utf-8")
+    print(f"wrote {path.name} (judge prompt version {JUDGE_PROMPT_VERSION[:16]}...)")
+
+    sheet2 = out / SHEETS["validation2"][0]
+    if sheet2.exists():
+        print(f"{sheet2.name} already exists; left unchanged")
+        return
+    key = json.loads((out / KEY_NAME).read_text(encoding="utf-8"))
+    rows = [(item, items["generations"][meta["gen_id"]])
+            for item, meta in sorted(key.items()) if item.startswith("V")]
+    random.Random(ANNOTATOR2_ORDER_SEED).shuffle(rows)  # a different row order from the author's
+    write_sheet(sheet2, rows)
+    print(f"wrote {sheet2.name}: {len(rows)} items. Send the second annotator only this file and "
+          f"{path.name}; never the key, the author's sheet, or any judge output.")
+
+
+def cmd_relabel_sheet(out: Path) -> None:
+    """Release the intra-rater sheet: 20 of the author's 140 items, under new ids.
+
+    Only after both of the author's sheets are locked and at least 3 days have
+    passed since the later lock, so the re-labels are not made from memory.
+    The 20 are fixed by seed, so the choice cannot depend on the labels.
+    """
+    target = out / SHEETS["relabel"][0]
+    if target.exists():
+        raise ValueError(f"{target.name} already exists and is never redrawn")
+    locks = []
+    for sheet in ("pilot", "validation"):
+        if not locked_path(out, sheet).exists():
+            raise ValueError(f"lock the {sheet} sheet first")
+        locks.append(json.loads(locked_path(out, sheet).read_text(encoding="utf-8"))["locked_utc"])
+    from datetime import datetime, timedelta
+    ready = max(datetime.fromisoformat(t) for t in locks) + timedelta(days=RELABEL_MIN_DAYS)
+    if datetime.fromisoformat(now_utc()) < ready:
+        raise ValueError(f"the re-label sheet is released from {ready.isoformat()} "
+                         f"({RELABEL_MIN_DAYS} days after the later lock)")
+
+    items = load_items(out)
+    key = json.loads((out / KEY_NAME).read_text(encoding="utf-8"))
+    rng = random.Random(RELABEL_SEED)
+    chosen = rng.sample(sorted(k for k in key if k[0] in "PV"), RELABEL_N)
+    rng.shuffle(chosen)
+    rows = []
+    for i, original in enumerate(chosen, 1):
+        item = f"R{i:03d}"
+        key[item] = {**key[original], "relabel_of": original}
+        rows.append((item, items["generations"][key[original]["gen_id"]]))
+    write_json_atomic(out / KEY_NAME, key)
+    write_sheet(target, rows)
+    print(f"wrote {target.name}: {len(rows)} items under new ids. Label them without "
+          f"looking at your earlier sheets, then run 'lock --sheet relabel'.")
 
 
 # --- 4. Judging, with one retry (protocol, Section 7) --------------------------------
@@ -422,22 +521,14 @@ def cmd_report(out: Path, paid: bool) -> None:
     worst_cell = max((refusals_by_cat[c] / calls_by_cat[c] for c in calls_by_cat), default=0.0)
 
     # Go/no-go, the subtle-category check first (protocol, Section 11, as changed
-    # by Protocol Amendment 1: binary agreement on each category's drawn items).
-    basic_agreement = sorted(per_cat[c]["binary_agreement"] for c in categories
-                             if groups[c] == "basic" and per_cat[c]["binary_agreement"] is not None)
-    median_basic = float(np.median(basic_agreement)) if basic_agreement else None
-    subtle_rows = []
-    for c in SUBTLE:
-        lo, hi = per_cat[c]["binary_ci"]
-        if hi is None or median_basic is None:
-            subtle_rows.append((c, None, f"not assessable: {per_cat[c]['n_stratum']} judged items drawn from {c}"))
-        else:
-            subtle_rows.append((c, hi >= median_basic,
-                                f"binary agreement {fmt(per_cat[c]['binary_agreement'])} "
-                                f"(95% CI {fmt(lo)} to {fmt(hi)}, n {per_cat[c]['n_stratum']}) "
-                                f"vs basic median {fmt(median_basic)}"))
-    checks = [(f"4. {c} binary agreement not clearly below the basic categories", ok, detail)
-              for c, ok, detail in subtle_rows]
+    # by Protocol Amendment 1, and by Protocol Amendment 3: it must pass against
+    # each annotator separately, the blind second annotator included).
+    checks = []
+    for annotator, annotator_labels in (("author", labels),
+                                        ("annotator 2", optional_labels(out, "validation2"))):
+        for c, ok, detail in criterion4_rows(annotator_labels, val, gens, categories, groups):
+            checks.append((f"4. {c} binary agreement not clearly below the basic categories, "
+                           f"vs {annotator}", ok, detail))
     checks += [
         ("3. overall emotion kappa >= 0.6", None if kappa is None else kappa >= THRESHOLDS["kappa_min"],
          f"kappa {fmt(kappa)}, agreement {fmt(percent)}, n {len(judged)}"),
@@ -507,11 +598,116 @@ def cmd_report(out: Path, paid: bool) -> None:
         *[f"| {c} | {fmt(v['agreement'])} | {fmt(v['kappa'])} | {fmt(v['coherence_exact'])} | "
           f"{fmt(v['coherence_mad'])} |" for c, v in retest_cat.items()],
         "",
+        *second_annotator_section(out, categories, gens, labels, val),
+        *intra_rater_section(out),
+        "## Cross-judge (GPT-6 Astra High)",
+        "",
+        "Pre-registered secondary analysis (Protocol Amendment 3); not run yet. Never ground "
+        "truth, never used for go/no-go.",
+        "",
     ]
     report = out / backend / "report.md"
     report.write_text("\n".join(lines), encoding="utf-8")
     print("\n".join(lines[:16 + len(checks)]))
     print(f"full report: {report}")
+
+
+def criterion4_rows(annotator: dict | None, judged: dict, gens: dict, categories: list[str],
+                    groups: dict[str, str]) -> list[tuple[str, bool | None, str]]:
+    """Criterion 4 against one annotator: (category, passed or None, detail) for trust and
+    anticipation. None (not assessable) when that annotator's labels are not locked."""
+    if annotator is None:
+        return [(c, None, "not assessable: the second annotator's labels are not locked")
+                for c in SUBTLE]
+    agreement = {}
+    for c in categories:
+        stratum = [g for g in annotator if g in judged and gens[g]["category"] == c]
+        agreement[c] = binary_agreement(stratum, judged, annotator, c)
+    basic = [k / n for c, (k, n) in agreement.items() if groups[c] == "basic" and n]
+    median_basic = float(np.median(basic)) if basic else None
+    rows = []
+    for c in SUBTLE:
+        k, n = agreement[c]
+        lo, hi = wilson(k, n)
+        if hi is None or median_basic is None:
+            rows.append((c, None, f"not assessable: {n} judged items drawn from {c}"))
+        else:
+            rows.append((c, hi >= median_basic,
+                         f"binary agreement {fmt(k / n)} (95% CI {fmt(lo)} to {fmt(hi)}, n {n}) "
+                         f"vs basic median {fmt(median_basic)}"))
+    return rows
+
+
+def binary_agreement(ids: list[str], a: dict, b: dict, c: str) -> tuple[int, int]:
+    """(matches, n) on SSR's question for category c: is the label c, yes or no."""
+    return sum((a[g]["emotion"] == c) == (b[g]["emotion"] == c) for g in ids), len(ids)
+
+
+def second_annotator_section(out: Path, categories: list[str], gens: dict,
+                             author: dict, judged: dict) -> list[str]:
+    """Human-human agreement and the judge against each annotator (Protocol Amendment 3).
+
+    Reported next to criterion 4 for context; go/no-go stays computed against
+    the author's labels, as registered.
+    """
+    second = optional_labels(out, "validation2")
+    head = ["## Second annotator (Protocol Amendment 3)", ""]
+    if second is None:
+        return head + ["Not available yet: the second annotator's sheet is not locked.", ""]
+
+    both = [g for g in author if g in second]
+    hh = cohen_kappa([author[g]["emotion"] for g in both], [second[g]["emotion"] for g in both], list(LABELS))
+    hh_pct = sum(author[g]["emotion"] == second[g]["emotion"] for g in both) / len(both) if both else None
+    with_judge = [g for g in both if g in judged]
+    j2 = cohen_kappa([second[g]["emotion"] for g in with_judge],
+                     [judged[g]["emotion"] for g in with_judge], list(LABELS))
+    j1 = cohen_kappa([author[g]["emotion"] for g in with_judge],
+                     [judged[g]["emotion"] for g in with_judge], list(LABELS))
+    rows = []
+    for c in categories:
+        stratum = [g for g in both if gens[g]["category"] == c]
+        judged_stratum = [g for g in stratum if g in judged]
+        k_hh, n_hh = binary_agreement(stratum, author, second, c)
+        k_j1, n_j1 = binary_agreement(judged_stratum, judged, author, c)
+        k_j2, n_j2 = binary_agreement(judged_stratum, judged, second, c)
+        kappa_c = cohen_kappa([author[g]["emotion"] for g in stratum],
+                              [second[g]["emotion"] for g in stratum], list(LABELS))
+        lo, hi = wilson(k_hh, n_hh)
+        rows.append(f"| {c} | {fmt(k_j1 / n_j1 if n_j1 else None)} | {fmt(k_j2 / n_j2 if n_j2 else None)} | "
+                    f"{fmt(k_hh / n_hh if n_hh else None)} ({fmt(lo)} to {fmt(hi)}) | {fmt(kappa_c)} | {n_hh} |")
+    return head + [
+        f"Author vs second annotator: kappa {fmt(hh)}, percent agreement {fmt(hh_pct)}, n {len(both)}.",
+        f"Judge vs author: kappa {fmt(j1)}. Judge vs second annotator: kappa {fmt(j2)} "
+        f"(n {len(with_judge)}).",
+        "",
+        "Binary agreement on SSR's question, per category's drawn items. Context for "
+        "criterion 4 only: go/no-go stays computed against the author, and this table never "
+        "turns a failed criterion into a pass.",
+        "",
+        "| Category | Judge vs author | Judge vs annotator 2 | Author vs annotator 2 (95% CI) | "
+        "Author vs annotator 2 kappa | n |",
+        "|---|---|---|---|---|---|",
+        *rows,
+        "",
+    ]
+
+
+def intra_rater_section(out: Path) -> list[str]:
+    """The author's self-agreement on the 20 re-labelled items (Protocol Amendment 3)."""
+    relabel = optional_labels(out, "relabel")
+    head = ["## Intra-rater check (Protocol Amendment 3)", ""]
+    if relabel is None:
+        return head + ["Not available yet: the re-label sheet is not locked.", ""]
+    first = {**locked_labels(out, "pilot"), **locked_labels(out, "validation")}
+    ids = [g for g in relabel if g in first]
+    a, b = [first[g]["emotion"] for g in ids], [relabel[g]["emotion"] for g in ids]
+    return head + [
+        f"Self-agreement on {len(ids)} items: kappa {fmt(cohen_kappa(a, b, list(LABELS)))}, "
+        f"percent agreement {fmt(sum(x == y for x, y in zip(a, b)) / len(ids) if ids else None)}, "
+        f"coherence weighted kappa "
+        f"{fmt(cohen_kappa([first[g]['coherence'] for g in ids], [relabel[g]['coherence'] for g in ids], [1, 2, 3, 4, 5], quadratic=True))}.",
+        "",
+    ]
 
 
 # --- 7. Entry point ------------------------------------------------------------------------
@@ -521,11 +717,11 @@ def main() -> None:
     sub = parser.add_subparsers(dest="command", required=True)
     p = sub.add_parser("sample", help="draw the label and retest sets")
     p.add_argument("--source", required=True, help="full evaluation folder (runs/evaluation/<run>/<backend>)")
-    for name in ("lock", "judge", "report"):
+    for name in ("export", "relabel-sheet", "lock", "judge", "report"):
         p = sub.add_parser(name)
         p.add_argument("--run", required=True, help="vector run name the validation folder belongs to")
         if name == "lock":
-            p.add_argument("--sheet", required=True, choices=("pilot", "validation"))
+            p.add_argument("--sheet", required=True, choices=tuple(SHEETS))
         if name == "judge":
             p.add_argument("--stage", required=True, choices=("pilot", "validation"))
         if name in ("judge", "report"):
@@ -534,6 +730,10 @@ def main() -> None:
 
     if args.command == "sample":
         cmd_sample(Path(args.source))
+    elif args.command == "export":
+        cmd_export(folder(args.run))
+    elif args.command == "relabel-sheet":
+        cmd_relabel_sheet(folder(args.run))
     elif args.command == "lock":
         cmd_lock(folder(args.run), args.sheet)
     elif args.command == "judge":
