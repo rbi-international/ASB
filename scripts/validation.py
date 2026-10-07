@@ -214,7 +214,8 @@ def cmd_lock(out: Path, sheet: str) -> None:
     with path.open(encoding="utf-8-sig", newline="") as fh:
         rows = list(csv.DictReader(fh))
 
-    errors, labels, edited = [], {}, []
+    generations = load_items(out)["generations"]
+    errors, labels, edited, line_endings = [], {}, [], []
     seen = [r["item_id"].strip() for r in rows]
     if sorted(seen) != sorted(expected):
         errors.append("item ids differ from the drawn set (rows added, removed or renamed)")
@@ -226,14 +227,22 @@ def cmd_lock(out: Path, sheet: str) -> None:
             errors.append(f"{item}: emotion {r['emotion']!r} is not one of {', '.join(LABELS)}")
         if coherence not in {"1", "2", "3", "4", "5"}:
             errors.append(f"{item}: coherence {r['coherence']!r} is not a whole number 1 to 5")
-        if item in key and sha256_text(r["text"].replace("\r\n", "\n")) != key[item]["output_sha256"]:
-            edited.append(item)
+        # Raw text first: drawn outputs can themselves contain \r\n, so normalizing
+        # before comparing would flag identical text. Line endings are compared
+        # only once the raw text is known to differ.
+        if item in key and sha256_text(r["text"]) != key[item]["output_sha256"]:
+            drawn = generations[key[item]["gen_id"]]["output"]
+            unify = lambda s: s.replace("\r\n", "\n").replace("\r", "\n")  # noqa: E731
+            (line_endings if unify(r["text"]) == unify(drawn) else edited).append(item)
         labels[item] = {"emotion": emotion, "coherence": int(coherence) if coherence.isdigit() else None}
     if errors:
         raise ValueError(f"{path.name} is not ready to lock:\n  " + "\n  ".join(errors))
+    if line_endings:
+        print(f"note: the text differs from the drawn output only in line endings for "
+              f"{len(line_endings)} items: {line_endings[:10]}")
     if edited:
-        print(f"warning: the text differs from the drawn output for {len(edited)} items "
-              f"(often only spreadsheet line-ending changes): {edited[:10]}")
+        print(f"warning: the text differs from the drawn output beyond line endings for "
+              f"{len(edited)} items: {edited[:10]}")
 
     write_json_atomic(target, {"sheet": sheet, "sheet_sha256": file_sha256(path),
                                "labels": labels, "locked_utc": now_utc()})
